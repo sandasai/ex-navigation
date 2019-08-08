@@ -1,4 +1,4 @@
-import React, { PropTypes } from 'react';
+import React from 'react';
 import {
   Animated,
   Image,
@@ -7,18 +7,23 @@ import {
   Text,
   TouchableOpacity,
   View,
+  ViewPropTypes,
 } from 'react-native';
+import PropTypes from 'prop-types';
 import PureComponent from './utils/PureComponent';
 import { unsupportedNativeView } from './ExUnsupportedNativeView';
 import { withNavigation } from './ExNavigationComponents';
 
-let Components;
-if (global.__exponent) {
-  Components = global.__exponent.Components;
+import isIPhoneX from './utils/isIPhoneX';
+
+let BlurView;
+let expoModule = global.__exponent || global.__expo;
+if (expoModule) {
+  BlurView = expoModule.BlurView
+    ? expoModule.BlurView
+    : expoModule.Components.BlurView;
 } else {
-  Components = {
-    BlurView: unsupportedNativeView('BlurView'),
-  };
+  BlurView = unsupportedNativeView('BlurView');
 }
 
 // Exponent draws under the status bar on Android, but vanilla React Native does not.
@@ -29,8 +34,12 @@ const STATUSBAR_HEIGHT = Platform.OS === 'ios' ? 0 : (global.__exponent ? 24 : 0
 const APPBAR_HEIGHT = Platform.OS === 'ios' ? 44 : 55;
 const BACKGROUND_COLOR = Platform.OS === 'ios' ? '#EFEFF2' : '#FFF';
 const BORDER_BOTTOM_COLOR = 'rgba(0, 0, 0, .15)';
-const BORDER_BOTTOM_WIDTH = Platform.OS === 'ios' ? StyleSheet.hairlineWidth : 0;
+const BORDER_BOTTOM_WIDTH =
+  Platform.OS === 'ios' ? StyleSheet.hairlineWidth : 0;
 const BACK_BUTTON_HIT_SLOP = { top: 0, bottom: 0, left: 0, right: 30 };
+
+const IPHONE_X_EXTRA_HEIGHT = isIPhoneX ? 20 : 0;
+const IPHONE_X_TOP_OFFSET = isIPhoneX ? 30 : 0;
 
 class ExNavigationBarTitle extends PureComponent {
   render() {
@@ -38,11 +47,13 @@ class ExNavigationBarTitle extends PureComponent {
 
     return (
       <View style={[titleStyles.title, style]}>
-        <Text style={[
-          titleStyles.titleText,
-          tintColor ? {color: tintColor} : null,
-          textStyle,
-        ]}>
+        <Text
+          numberOfLines={1}
+          style={[
+            titleStyles.titleText,
+            tintColor ? { color: tintColor } : null,
+            textStyle,
+          ]}>
           {children}
         </Text>
       </View>
@@ -85,10 +96,9 @@ class ExNavigationBarBackButton extends PureComponent {
       <TouchableOpacity
         onPress={this._onPress}
         hitSlop={BACK_BUTTON_HIT_SLOP}
-        style={buttonStyles.buttonContainer}
-      >
+        style={buttonStyles.buttonContainer}>
         <Image
-          style={[buttonStyles.button, tintColor ? {tintColor} : null]}
+          style={[buttonStyles.button, tintColor ? { tintColor } : null]}
           source={require('./ExNavigationAssets').backIcon}
         />
       </TouchableOpacity>
@@ -103,9 +113,11 @@ class ExNavigationBarMenuButton extends PureComponent {
     const { tintColor } = this.props;
 
     return (
-      <TouchableOpacity style={buttonStyles.buttonContainer} onPress={() => this.props.navigator.toggleDrawer()}>
+      <TouchableOpacity
+        style={buttonStyles.buttonContainer}
+        onPress={() => this.props.navigator.toggleDrawer()}>
         <Image
-          style={[buttonStyles.menuButton, tintColor ? {tintColor} : null]}
+          style={[buttonStyles.menuButton, tintColor ? { tintColor } : null]}
           source={require('./ExNavigationAssets').menuIcon}
         />
       </TouchableOpacity>
@@ -159,7 +171,11 @@ export default class ExNavigationBar extends PureComponent {
     renderTitleComponent(props) {
       const { navigationState } = props;
       const title = String(navigationState.title || '');
-      return <ExNavigationBarTitle>{title}</ExNavigationBarTitle>;
+      return (
+        <ExNavigationBarTitle>
+          {title}
+        </ExNavigationBarTitle>
+      );
     },
     barHeight: APPBAR_HEIGHT,
     statusBarHeight: STATUSBAR_HEIGHT,
@@ -172,7 +188,7 @@ export default class ExNavigationBar extends PureComponent {
     renderBackgroundComponent: PropTypes.func,
     barHeight: PropTypes.number.isRequired,
     statusBarHeight: PropTypes.number.isRequired,
-    style: View.propTypes.style,
+    style: ViewPropTypes.style,
   };
 
   constructor(props, context) {
@@ -192,7 +208,8 @@ export default class ExNavigationBar extends PureComponent {
 
     if (this.props.navigationState.index !== nextProps.navigationState.index) {
       this.setState({
-        delta: nextProps.navigationState.index - this.props.navigationState.index,
+        delta:
+          nextProps.navigationState.index - this.props.navigationState.index,
       });
     } else {
       this.setState({
@@ -219,19 +236,30 @@ export default class ExNavigationBar extends PureComponent {
     });
 
     // TODO: this should come from the latest scene config
-    const height = this.props.barHeight + this.props.statusBarHeight;
+    const height =
+      this.props.barHeight + this.props.statusBarHeight + IPHONE_X_EXTRA_HEIGHT;
 
     let styleFromRouteConfig = this.props.latestRoute.getBarStyle();
     let isTranslucent = !!this.props.latestRoute.getTranslucent();
     let translucentTint = this.props.latestRoute.getTranslucentTint();
-    let backgroundStyle = isTranslucent ? styles.appbarTranslucent : styles.appbarSolid;
-    let containerStyle = [styles.appbar, backgroundStyle, style, {height}, styleFromRouteConfig];
+    let backgroundStyle = isTranslucent
+      ? styles.appbarTranslucent
+      : styles.appbarSolid;
+    let containerStyle = [
+      styles.appbar,
+      backgroundStyle,
+      style,
+      { height },
+      styleFromRouteConfig,
+    ];
 
     if (this.props.overrideStyle) {
       containerStyle = [style];
     }
 
-    containerStyle.push(this.props.interpolator.forContainer(this.props, this.state.delta));
+    containerStyle.push(
+      this.props.interpolator.forContainer(this.props, this.state.delta)
+    );
 
     let leftComponents = scenesProps.map(this._renderLeft, this);
     let rightComponents = scenesProps.map(this._renderRight, this);
@@ -243,21 +271,29 @@ export default class ExNavigationBar extends PureComponent {
     });
 
     const backgroundComponents = scenesProps.map(this._renderBackground, this);
-    const wrapperStyle = [styles.wrapper, { paddingTop: APPBAR_HEIGHT + this.props.statusBarHeight }];
+    const wrapperStyle = [
+      styles.wrapper,
+      { paddingTop: APPBAR_HEIGHT + this.props.statusBarHeight },
+    ];
 
     return (
-      <View pointerEvents={this.props.visible ? 'auto' : 'none'} style={wrapperStyle}>
-        {isTranslucent && (
-          <Components.BlurView
+      <View
+        pointerEvents={this.props.visible ? 'auto' : 'none'}
+        style={wrapperStyle}>
+        {isTranslucent &&
+          <BlurView
             tint={translucentTint}
             intensity={100}
-            style={[styles.translucentUnderlay, {height}]}
-          />
-        )}
+            style={[styles.translucentUnderlay, { height }]}
+          />}
 
         <Animated.View style={containerStyle}>
           {backgroundComponents}
-          <View style={[styles.appbarInnerContainer, {top: this.props.statusBarHeight}]}>
+          <View
+            style={[
+              styles.appbarInnerContainer,
+              { top: this.props.statusBarHeight + IPHONE_X_EXTRA_HEIGHT },
+            ]}>
             {titleComponents}
             {leftComponents}
             {rightComponents}
@@ -272,7 +308,7 @@ export default class ExNavigationBar extends PureComponent {
       props,
       'background',
       this.props.renderBackgroundComponent,
-      options,
+      options
     );
   }
 
@@ -281,7 +317,7 @@ export default class ExNavigationBar extends PureComponent {
       props,
       'left',
       this.props.renderLeftComponent,
-      this.props.interpolator.forLeft,
+      this.props.interpolator.forLeft
     );
   }
 
@@ -291,7 +327,7 @@ export default class ExNavigationBar extends PureComponent {
       'title',
       this.props.renderTitleComponent,
       this.props.interpolator.forCenter,
-      options,
+      options
     );
   }
 
@@ -300,27 +336,14 @@ export default class ExNavigationBar extends PureComponent {
       props,
       'right',
       this.props.renderRightComponent,
-      this.props.interpolator.forRight,
+      this.props.interpolator.forRight
     );
   }
 
-  _renderSubView(
-    props,
-    name,
-    renderer,
-    styleInterpolator,
-    options = {},
-  ) {
-    const {
-      scene,
-      navigationState,
-    } = props;
+  _renderSubView(props, name, renderer, styleInterpolator, options = {}) {
+    const { scene, navigationState } = props;
 
-    const {
-      index,
-      isStale,
-      key,
-    } = scene;
+    const { index, isStale, key } = scene;
 
     const offset = navigationState.index - index;
 
@@ -354,10 +377,7 @@ export default class ExNavigationBar extends PureComponent {
         <View
           pointerEvents={'none'}
           key={name + '_' + key}
-          style={[
-            styles[name],
-            layoutStyle,
-          ]}>
+          style={[styles[name], layoutStyle]}>
           {subView}
         </View>
       );
@@ -367,19 +387,17 @@ export default class ExNavigationBar extends PureComponent {
       <Animated.View
         pointerEvents={pointerEvents}
         key={name + '_' + key}
-        style={[
-          styles[name],
-          layoutStyle,
-          styleInterpolator(props),
-        ]}>
+        style={[styles[name], layoutStyle, styleInterpolator(props)]}>
         {subView}
       </Animated.View>
     );
   }
 }
 
-ExNavigationBar.DEFAULT_HEIGHT = APPBAR_HEIGHT + STATUSBAR_HEIGHT;
-ExNavigationBar.DEFAULT_HEIGHT_WITHOUT_STATUS_BAR = APPBAR_HEIGHT;
+ExNavigationBar.DEFAULT_HEIGHT =
+  APPBAR_HEIGHT + STATUSBAR_HEIGHT + IPHONE_X_EXTRA_HEIGHT;
+ExNavigationBar.DEFAULT_HEIGHT_WITHOUT_STATUS_BAR =
+  APPBAR_HEIGHT + IPHONE_X_EXTRA_HEIGHT;
 ExNavigationBar.DEFAULT_BACKGROUND_COLOR = BACKGROUND_COLOR;
 ExNavigationBar.DEFAULT_BORDER_BOTTOM_COLOR = BORDER_BOTTOM_COLOR;
 ExNavigationBar.DEFAULT_BORDER_BOTTOM_WIDTH = BORDER_BOTTOM_WIDTH;

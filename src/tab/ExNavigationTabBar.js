@@ -10,13 +10,14 @@ import {
 
 import { unsupportedNativeView } from '../ExUnsupportedNativeView';
 
-let Components;
-if (global.__exponent) {
-  Components = global.__exponent.Components;
+let BlurView;
+let expoModule = global.__exponent || global.__expo;
+if (expoModule) {
+  BlurView = expoModule.BlurView
+    ? expoModule.BlurView
+    : expoModule.Components.BlurView;
 } else {
-  Components = {
-    BlurView: unsupportedNativeView('BlurView'),
-  };
+  BlurView = unsupportedNativeView('BlurView');
 }
 
 import TabBadge from '../ExNavigationBadge';
@@ -27,16 +28,24 @@ export default class ExNavigationTabBar extends React.Component {
   static defaultHeight = DEFAULT_TAB_BAR_HEIGHT;
 
   render() {
-    const height = this.props.height || DEFAULT_TAB_BAR_HEIGHT;
+    const height =
+      (this.props.height || DEFAULT_TAB_BAR_HEIGHT) +
+      (this.props.extraHeight || 0);
     let isTranslucent = this.props.translucent;
     let backgroundColor = isTranslucent ? 'rgba(255,255,255,0.5)' : '#fefefe';
+    let paddingBottom = this.props.bottomOffset || 0;
 
     return (
-      <View style={[styles.container, {height}]}>
+      <View style={[styles.container, { height }]}>
         {isTranslucent &&
-          <Components.BlurView style={[styles.translucentUnderlay, {height}]} />}
+          <BlurView style={[styles.translucentUnderlay, { height }]} />}
 
-        <View style={[styles.innerContainer, {backgroundColor}, this.props.style]}>
+        <View
+          style={[
+            styles.innerContainer,
+            { backgroundColor, paddingBottom },
+            this.props.style,
+          ]}>
           <View style={styles.itemContainer}>
             {this.renderTabItems()}
           </View>
@@ -59,7 +68,11 @@ export default class ExNavigationTabBar extends React.Component {
         if (renderTitle) {
           title = renderTitle(isSelected, item.title, index);
         } else {
-          title = <Text>{item.title}</Text>;
+          title = (
+            <Text>
+              {item.title}
+            </Text>
+          );
         }
       }
 
@@ -73,7 +86,9 @@ export default class ExNavigationTabBar extends React.Component {
         badge = renderBadge(isSelected, item.title, index);
       } else if (badgeText) {
         badge = (
-          <TabBadge style={styles.badge}>{badgeText}</TabBadge>
+          <TabBadge style={styles.badge}>
+            {badgeText}
+          </TabBadge>
         );
       }
 
@@ -84,7 +99,10 @@ export default class ExNavigationTabBar extends React.Component {
             onPress={item.onPress}
             onLongPress={item.onLongPress}
             delayPressIn={0}
-            style={[styles.tabItem, isSelected ? item.selectedStyle : item.style]}
+            style={[
+              styles.tabItem,
+              isSelected ? item.selectedStyle : item.style,
+            ]}
             background={item.nativeFeedbackBackground}>
             {title}
             {icon}
@@ -98,7 +116,11 @@ export default class ExNavigationTabBar extends React.Component {
             onPress={item.onPress}
             delayPressIn={0}
             onLongPress={item.onLongPress}>
-            <View style={[styles.tabItem, isSelected ? item.selectedStyle : item.style]}>
+            <View
+              style={[
+                styles.tabItem,
+                isSelected ? item.selectedStyle : item.style,
+              ]}>
               {icon}
               {badge}
               {title}
